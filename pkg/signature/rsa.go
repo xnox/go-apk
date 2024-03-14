@@ -7,6 +7,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	_ "crypto/sha1"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -96,4 +97,9 @@ func RSAVerifyDigest(digest []byte, digestType crypto.Hash, signature []byte, pu
 	}
 
 	return nil
+}
+
+// Backwards compat
+func RSASignSHA1Digest(digest []byte, keyFile, passphrase string) ([]byte, error) {
+	return RSASignDigest(digest, crypto.SHA1, keyFile, passphrase)
 }
