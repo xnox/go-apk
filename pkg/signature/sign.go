@@ -18,8 +18,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	_ "crypto/sha1" //nolint:gosec
 	"crypto"
+	_ "crypto/sha1" //nolint:gosec
 	"errors"
 	"fmt"
 	"io"
@@ -47,22 +47,36 @@ func SignIndex(ctx context.Context, signingKey string, indexFile string) error {
 
 	log.Printf("signing index %s with key %s", indexFile, signingKey)
 
-	indexDigestType := crypto.SHA1
-	indexData, indexDigest, err := ReadAndHashIndexFile(indexFile, indexDigestType)
-	if err != nil {
-		return err
+	sigs := []struct {
+		digestType crypto.Hash
+		filename   string
+	}{
+		{
+			crypto.SHA1,
+			"RSA",
+		},
 	}
 
-	sigData, err := RSASignDigest(indexDigest, indexDigestType, signingKey, "")
+	indexData, err := os.ReadFile(indexFile)
 	if err != nil {
-		return fmt.Errorf("unable to sign index: %w", err)
+		fmt.Errorf("unable to read index for signing: %w", err)
 	}
-
-	log.Printf("appending signature to index %s", indexFile)
 
 	sigFS := memfs.New()
-	if err := sigFS.WriteFile(fmt.Sprintf(".SIGN.RSA.%s.pub", filepath.Base(signingKey)), sigData, 0644); err != nil {
-		return fmt.Errorf("unable to append signature: %w", err)
+
+	for _, sig := range sigs {
+		indexDigest := sig.digestType.New().Sum(indexData)
+
+		sigData, err := RSASignDigest(indexDigest, sig.digestType, signingKey, "")
+		if err != nil {
+			return fmt.Errorf("unable to sign index: %w", err)
+		}
+
+		log.Printf("appending signature %s to index %s", sig.filename, indexFile)
+
+		if err := sigFS.WriteFile(fmt.Sprintf(".SIGN.%s.%s.pub", sig.filename, filepath.Base(signingKey)), sigData, 0644); err != nil {
+			return fmt.Errorf("unable to append signature: %w", err)
+		}
 	}
 
 	// prepare control.tar.gz
