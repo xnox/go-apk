@@ -18,7 +18,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"crypto/sha1" //nolint:gosec
+	_ "crypto/sha1" //nolint:gosec
+	"crypto"
 	"errors"
 	"fmt"
 	"io"
@@ -46,12 +47,13 @@ func SignIndex(ctx context.Context, signingKey string, indexFile string) error {
 
 	log.Printf("signing index %s with key %s", indexFile, signingKey)
 
-	indexData, indexDigest, err := ReadAndHashIndexFile(indexFile)
+	indexDigestType := crypto.SHA1
+	indexData, indexDigest, err := ReadAndHashIndexFile(indexFile, indexDigestType)
 	if err != nil {
 		return err
 	}
 
-	sigData, err := RSASignSHA1Digest(indexDigest, signingKey, "")
+	sigData, err := RSASignDigest(indexDigest, indexDigestType, signingKey, "")
 	if err != nil {
 		return fmt.Errorf("unable to sign index: %w", err)
 	}
@@ -131,21 +133,13 @@ func indexIsAlreadySigned(indexFile string) (bool, error) {
 	return false, nil
 }
 
-func ReadAndHashIndexFile(indexFile string) ([]byte, []byte, error) {
+func ReadAndHashIndexFile(indexFile string, digestType crypto.Hash) ([]byte, []byte, error) {
 	indexBuf, err := os.ReadFile(indexFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to read index for signing: %w", err)
 	}
 
-	indexDigest, err := HashData(indexBuf)
+	indexDigest := digestType.New().Sum(indexBuf)
 
 	return indexBuf, indexDigest, err
-}
-
-func HashData(data []byte) ([]byte, error) {
-	digest := sha1.New() //nolint:gosec
-	if n, err := digest.Write(data); err != nil || n != len(data) {
-		return nil, fmt.Errorf("unable to hash data: %w", err)
-	}
-	return digest.Sum(nil), nil
 }

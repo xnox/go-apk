@@ -18,6 +18,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"crypto"
 	"errors"
 	"fmt"
 	"io"
@@ -271,7 +272,8 @@ func getRepositoryIndex(ctx context.Context, u string, keys map[string][]byte, a
 		readBytes := allBytes - unreadBytes
 		indexData := b[readBytes:]
 
-		indexDigest, err := sign.HashData(indexData)
+		indexDigestType := crypto.SHA1
+		indexDigest := indexDigestType.New().Sum(indexData)
 		if err != nil {
 			return nil, err
 		}
@@ -282,13 +284,13 @@ func getRepositoryIndex(ctx context.Context, u string, keys map[string][]byte, a
 		var verified bool
 		keyData, ok := keys[matches[1]]
 		if ok {
-			if err := sign.RSAVerifySHA1Digest(indexDigest, signature, keyData); err != nil {
+			if err := sign.RSAVerifyDigest(indexDigest, indexDigestType, signature, keyData); err != nil {
 				verified = false
 			}
 		}
 		if !verified {
 			for _, keyData := range keys {
-				if err := sign.RSAVerifySHA1Digest(indexDigest, signature, keyData); err == nil {
+				if err := sign.RSAVerifyDigest(indexDigest, indexDigestType, signature, keyData); err == nil {
 					verified = true
 					break
 				}
