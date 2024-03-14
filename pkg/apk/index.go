@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	_ "crypto/sha1"
 	"errors"
 	"fmt"
 	"io"
