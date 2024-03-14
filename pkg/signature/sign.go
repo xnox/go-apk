@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto"
 	_ "crypto/sha1" //nolint:gosec
+	_ "crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -54,6 +55,10 @@ func SignIndex(ctx context.Context, signingKey string, indexFile string) error {
 		{
 			crypto.SHA1,
 			"RSA",
+		},
+		{
+			crypto.SHA256,
+			"RSA256",
 		},
 	}
 
